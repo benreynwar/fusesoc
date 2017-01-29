@@ -8,6 +8,7 @@ setup(
     name = "fusesoc",
     packages=['fusesoc',
               'fusesoc.build',
+              'fusesoc.capi1',
               'fusesoc.simulator',
               'fusesoc.provider'],
     use_scm_version = {

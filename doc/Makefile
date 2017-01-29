@@ -4,7 +4,7 @@ all: $(OBJECTS)
 
 capi.html: capi1.adoc
 
-capi1.adoc: ../fusesoc/section.py
+capi1.adoc: ../fusesoc/capi1/section.py
 	PYTHONPATH=.. python $< > $@
 
 %.html: %.adoc
