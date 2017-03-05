@@ -18,6 +18,7 @@ from fusesoc.config import Config
 from fusesoc.coremanager import CoreManager, DependencyError
 from fusesoc.vlnv import Vlnv
 from fusesoc.utils import pr_err, pr_info, pr_warn, Launcher
+from fusesoc.elaborator import Elaborator
 
 import logging
 
@@ -82,6 +83,15 @@ def build(args):
             backend.build(args.backendargs)
     except RuntimeError as e:
         pr_err("Failed to build FPGA: " + str(e))
+
+def elab(args):
+    core = _get_core(args.system)
+    tool = Elaborator(core, export=False)
+    output_fn = '{}-elab.core'.format(core.sanitized_name)
+    if os.path.exists(output_fn):
+        pr_err('{} already exists.'.format(output_fn))
+    else:
+        tool.write_core_file(output_fn)
 
 def pgm(args):
     core = _get_core(args.system, True)
@@ -315,6 +325,11 @@ def main():
     parser_build.add_argument('system')
     parser_build.add_argument('backendargs', nargs=argparse.REMAINDER)
     parser_build.set_defaults(func=build)
+
+    parser_elab = subparsers.add_parser('elab', help='Generate a core file without dependencies that lists all necessary files explicitly.')
+    parser_elab.add_argument('system')
+    parser_elab.add_argument('backendargs', nargs=argparse.REMAINDER)
+    parser_elab.set_defaults(func=elab)
 
     parser_init = subparsers.add_parser('init', help='Initialize the FuseSoC core libraries')
     parser_init.add_argument('-y', action='store_true', help='Skip user input and use default settings')
