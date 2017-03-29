@@ -1,6 +1,10 @@
 import os
 import logging
 from configparser import ConfigParser
+
+from fusesoc.coremanager import CoreManager
+from fusesoc.config import Config
+from fusesoc.vlnv import Vlnv
 try:
     from io import StringIO
 except ImportError:
@@ -9,6 +13,58 @@ except ImportError:
 from fusesoc.edatool import EdaTool
 
 logger = logging.getLogger(__name__)
+
+
+def get_cores(core_name):
+    '''
+    Returns a list of cores required for a given core name.
+    The top level core is the last in the list.
+    '''
+    core = CoreManager().get_core(Vlnv(core_name))
+    cores = CoreManager().get_depends(core.name)
+    return cores
+
+
+def setup_cores(cores):
+    '''
+    Runs all the providers for the cores.
+    This retrieves remote files and does any generation that
+    does not depend on parameters
+    '''
+    for core in cores:
+        core.setup()
+
+
+def generate_packages(cores, params, working_dir):
+    '''
+    Generates files for packages that depend on top-level parameters
+    only.
+    '''
+    for core in cores:
+        if core.package_generator:
+            core.package_generator.generate(params, working_dir)
+
+
+def get_files(cores, working_dir):
+    incdirs = []
+    src_files = []
+    usage = 'synth'
+    for core in cores:
+        files_root = core.files_root
+        basepath = os.path.relpath(files_root, working_dir)
+        for fs in core.file_sets:
+            # FIXME: We ignore private filesets for know.
+            if (set(fs.usage) & set(usage)) and (not fs.private):
+                for file in fs.file:
+                    if file.is_include_file:
+                        incdir = os.path.join(basepath, os.path.dirname(file.name))
+                        if incdir not in incdirs:
+                            incdirs.append(incdir)
+                    else:
+                        new_file = file.copy()
+                        new_file.name = os.path.join(basepath, file.name)
+                        src_files.append(new_file)
+    return (src_files, incdirs)
 
 
 class Elaborator(EdaTool):
@@ -42,7 +98,15 @@ class Elaborator(EdaTool):
             fs += [fname for fname in fnames if fname not in exclude_fs]
         return fs
 
+    def get_missing_instances(self):
+        # Run ghdl are get the GenericsLog messages.
+        # Rerun the approripate providers with updated params.
+        # Run ghdl to see if anymore messages.
+        # Iterate until no more messages.
+        pass
+
     def make_core_file(self):
+        self.configure({})
         p = ConfigParser()
         # Main info
         p.add_section('main')

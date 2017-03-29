@@ -263,7 +263,7 @@ def update(args):
             except subprocess.CalledProcessError:
                 pass
 
-def run(args):
+def register_core_roots(custom_core_roots=[]):
     cm = CoreManager()
     config = Config()
 
@@ -276,11 +276,16 @@ def run(args):
     for cores_root in [config.cores_root,
                        config.systems_root,
                        env_cores_root,
-                       args.cores_root]:
+                       custom_core_roots]:
         try:
             cm.add_cores_root(cores_root)
         except (RuntimeError, IOError) as e:
             pr_warn("Failed to register cores root '{}'".format(str(e)))
+
+
+def run(args):
+    config = Config()
+    register_core_roots(args.cores_root)
     # Process global options
     if vars(args)['32']:
         config.archbits = 32
