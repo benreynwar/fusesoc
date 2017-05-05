@@ -11,9 +11,9 @@ exit
 """
 class Rivierapro(Simulator):
 
-    def __init__(self, system, export, toplevel):
+    def __init__(self, system, export, eda_api):
 
-        super(Rivierapro, self).__init__(system, export, toplevel)
+        super(Rivierapro, self).__init__(system, export, eda_api)
         self.aldec_path = os.getenv('ALDEC_PATH')
         if not self.aldec_path:
             raise RuntimeError("Environment variable ALDEC_PATH was not found. I should be set to Riviera Pro install path. Please source <Riviera Pro install path>/etc/setenv to set it")
