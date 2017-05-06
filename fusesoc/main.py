@@ -204,6 +204,7 @@ def sim(args):
     flags = {'flow' : 'sim',
              'tool' : args.sim,
              'testbench' : args.testbench}
+    flags['target'] = 'stream_upsizer_tb' #FIXME
     sim_name = core.get_tool(flags)
     flags['tool'] = sim_name
     export_root = os.path.join(Config().build_root, core.name.sanitized_name, 'src')
