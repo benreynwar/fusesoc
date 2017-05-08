@@ -73,6 +73,7 @@ class CoreDB(object):
                 this.name    == that.name
 
         repo = Repository()
+        _flags = flags.copy()
         for core in self._cores.values():
             if only_matching_vlnv:
                 if not eq_vln(core.name, top_core):
@@ -82,7 +83,8 @@ class CoreDB(object):
                                             core.name.version,
                                             core.name.revision)
             if not only_matching_vlnv:
-                _depends = core.get_depends(flags)
+                _flags['is_toplevel'] = (core.name == top_core)
+                _depends = core.get_depends(_flags)
                 if _depends:
                     _s = "; depends ( {} )"
                     package_str += _s.format(self._parse_depend(_depends))
