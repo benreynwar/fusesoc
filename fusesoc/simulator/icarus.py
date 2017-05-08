@@ -66,8 +66,8 @@ class Icarus(Simulator):
         for key, value in self.vlogparam.items():
             args += ['-P{}.{}={}'.format(self.toplevel, key,
                                          self._param_value_str(value, strings_in_quotes=True))]
-        if self.system.icarus is not None:
-            args += self.system.icarus.iverilog_options
+        if 'iverilog_options' in self.tool_options:
+            args += self.tool_options['iverilog_options']
 
         Launcher('iverilog', args,
                  cwd      = self.work_root,

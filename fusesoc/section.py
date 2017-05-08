@@ -419,6 +419,8 @@ class VerilatorSection(ToolSection):
         if items:
             self.load_dict(items)
             self.include_dirs  = unique_dirs(self.include_files)
+            if not self.source_type:
+                self.source_type = 'C'
 
     def __str__(self):
         s = super(VerilatorSection, self).__str__()

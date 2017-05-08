@@ -180,6 +180,7 @@ class CoreManager(object):
     def get_eda_api(self, vlnv, flags):
 
         parameters   = []
+        tool_options = {}
 
         cores = self.get_depends(vlnv, flags)
 
@@ -195,9 +196,19 @@ class CoreManager(object):
                     'description' : param.description,
                     'name'        : param.name,
                     'paramtype'   : param.paramtype})
+
+            #Extract tool options
+            for key, value in core.get_tool_options(_flags).items():
+                if value:
+                    if key in tool_options:
+                        tool_options[key] += value
+                    else:
+                        tool_options[key] = value
+
         top_core = cores[-1]
         return {
             'name'         : top_core.sanitized_name,
             'parameters'   : parameters,
+            'tool_options' : {flags['tool'] : tool_options},
             'toplevel'     : top_core.get_toplevel(flags)
         }
