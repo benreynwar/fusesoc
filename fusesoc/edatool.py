@@ -54,6 +54,7 @@ class EdaTool(object):
         self.files      = eda_api['files']
         self.parameters = eda_api['parameters']
         self.toplevel = eda_api['toplevel']
+        self.vpi_modules = eda_api['vpi']
 
     def configure(self, args):
         if os.path.exists(self.work_root):

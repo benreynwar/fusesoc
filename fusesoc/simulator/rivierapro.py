@@ -11,13 +11,6 @@ exit
 """
 class Rivierapro(Simulator):
 
-    def __init__(self, system, export, eda_api):
-
-        super(Rivierapro, self).__init__(system, export, eda_api)
-        self.aldec_path = os.getenv('ALDEC_PATH')
-        if not self.aldec_path:
-            raise RuntimeError("Environment variable ALDEC_PATH was not found. I should be set to Riviera Pro install path. Please source <Riviera Pro install path>/etc/setenv to set it")
-
     def _write_build_rtl_tcl_file(self, tcl_main):
         tcl_build_rtl  = open(os.path.join(self.work_root, "fusesoc_build_rtl.tcl"), 'w')
 
@@ -112,11 +105,10 @@ class Rivierapro(Simulator):
         tcl_build_vpi = open(os.path.join(self.work_root, "fusesoc_build_vpi.tcl"), 'w')
         for vpi_module in self.vpi_modules:
             _name = vpi_module['name']
-            _root = vpi_module['root']
-            _incs = ' '.join(['-I'+d for d in vpi_module['include_dirs']])
-            _libs = ' '.join(vpi_module['libs'])
+            _incs = ' '.join(['-I'+os.path.relpath(d, self.work_root) for d in vpi_module['include_dirs']])
+            _libs = ' '.join(['-l'+l for l in vpi_module['libs']])
             _options = "-std=c99"
-            _srcs = ' '.join(vpi_module['src_files'])
+            _srcs = ' '.join([os.path.relpath(f, self.work_root) for f in vpi_module['src_files']])
             _s = 'ccomp -pli -o {}.so {} {} {} {}\n'.format(vpi_module['name'],
                                                       _incs,
                                                       _libs,
@@ -140,6 +132,8 @@ class Rivierapro(Simulator):
 
 
     def build(self):
+        if not os.getenv('ALDEC_PATH'):
+            raise RuntimeError("Environment variable ALDEC_PATH was not found. I should be set to Riviera Pro install path. Please source <Riviera Pro install path>/etc/setenv to set it")
         super(Rivierapro, self).build()
         args = ['-c', '-do', 'do fusesoc_main.tcl; exit']
         Launcher('vsim', args,
@@ -147,6 +141,8 @@ class Rivierapro(Simulator):
                  errormsg = "Failed to build simulation model. Log is available in '{}'".format(os.path.join(self.work_root, 'transcript'))).run()
 
     def run(self, args):
+        if not os.getenv('ALDEC_PATH'):
+            raise RuntimeError("Environment variable ALDEC_PATH was not found. I should be set to Riviera Pro install path. Please source <Riviera Pro install path>/etc/setenv to set it")
         super(Rivierapro, self).run(args)
 
         args = ['-c', '-quiet', '-do', 'fusesoc_run.tcl']
