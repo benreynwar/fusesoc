@@ -1,0 +1,6 @@
+CAPI=1
+[main]
+name = missing_deps
+description = A core to test what happens when dependencies are missing.
+depend =
+  doesnt_exist
