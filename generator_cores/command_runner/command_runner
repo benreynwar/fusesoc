@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+import os
+import shutil
+import subprocess
+import sys
+import yaml
+
+with open(sys.argv[1]) as f:
+    data = yaml.load(f)
+
+    config     = data['parameters']
+    files_root = data['files_root']
+    vlnv       = data['vlnv']
+
+    #Edalize decide core_file dir. generator creates file
+    core_file = vlnv.split(':')[2]+'.core'
+
+    files = config['output']['files']
+    cwd = files_root if config.get('cwd') else None
+
+    rc = subprocess.call(config['command'].split(), cwd=cwd)
+
+    if cwd:
+        filenames = []
+        for f in files:
+            for k in f:
+                filenames.append(k)
+
+        for f in filenames:
+            d = os.path.dirname(f)
+            if not os.path.exists(d):
+                os.makedirs(d)
+            shutil.copy2(os.path.join(cwd, f),f)
+
+    parameters = config['output']['parameters']
+    with open(core_file,'w') as f:
+        f.write('CAPI=2:\n')
+
+        coredata = {
+            'name'  : vlnv,
+            'targets' : {'default' : {}},
+            }
+        if files:
+            coredata['filesets'] = {'rtl' : {'files' : files}}
+            coredata['targets']['default']['filesets'] = ['rtl']
+        if parameters:
+            coredata['parameters'] = parameters
+            coredata['targets']['default']['parameters'] = list(parameters.keys())
+            
+        f.write(yaml.dump(coredata))
+exit(rc)

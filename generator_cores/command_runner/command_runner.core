@@ -1,0 +1,5 @@
+CAPI=2:
+name : ::command_runner:0
+generators:
+  command_runner:
+    command: command_runner

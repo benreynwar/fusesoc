@@ -1,0 +1,5 @@
+CAPI=2:
+name: fusesoc.net:generators:coregen_runner:0
+generators:
+  coregen:
+    command: ip/coregen_runner.py

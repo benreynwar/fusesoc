@@ -1,0 +1,76 @@
+CAPI=2:
+
+name : ::core_with_a_need_to_generate:0
+
+targets:
+  default:
+    #List of parameterized generators to run
+    generate: [version, generate_intercon]
+
+#Is this a good name? generators would be nicer, but want to use that
+# for the actual generators, not the invocation of a generator
+generate:
+  #Name of a parametrized generator to be run
+  generate_intercon:
+    #Name of the generator. FuseSoC needs to have registered this generator
+    #already from this, or another core
+    generator : command_runner
+
+    #This works fine for global commands, but how do we specify that
+    # this command should be called from the core that registered the
+    #generator. Example:
+    # wb_intercon has <wb_intercon root>/sw/wb_intercon_gen.py
+    # Same problem with arguments which are files in the caller's core root
+    #command : ???/sw/wb_intercon_gen.py ???/data/wb_intercon.conf wb_intercon.v
+    #Pass as env vars?
+    command : $GENERATOR_ROOT/sw/wb_intercon_gen.py $FILES_ROOT/data/wb_intercon.conf 
+
+    #The simplest generator would just run a command, and we specify ourselves
+    #which files (with file_type, is_include_file etc), parameters and so on
+    #that we expect as the outcome
+    output_files :
+      - wb_intercon.v  : {file_type : verilogSource}
+      - wb_intercon.vh : {file_type : verilogSource, is_include_file : true}
+
+  version:
+    generator : command_runner
+    #Previous command was ok with running from anywhere. This one might need to
+    # be run from $CORE_ROOT. Maybe address that later and require that the scripts change dir themselves if required
+    command : $CORE_ROOT/generate_version_file_from_git_describe.py
+    output_files :
+      - version.v : {file_type : verilogSource}
+        
+#Ok, then. Time to decide how cores declare that they have a generator. Start
+#with the command_runner example above. Pretend this is another .core file
+
+# A first pass in coremanager.py will pick up all entries in generators
+# (with get_generators() ?)
+generators:
+  command_runner:
+    parameters:
+      #A dict of available parameters, the "API" of the generator that will be
+      #sent as the top-level YAML entries to the generator.
+      #Maybe we can leave this out for now and users will just have to know
+      #the correct parameters
+      #In the yaml file, FuseSoC will also send some extra information, like
+      #the root directory of the generator, the root directory of the core
+      #that asked for the generator and the directory which file name to use
+      #for the output yaml file.
+      command:
+        description : The command to run
+        type        : str
+      output_files:
+        description : The expected output files from the executed command
+        #Don't attempt to describe the dict any further. Leave that to the
+        #generator to verify. This also brings us to the issue of how to report
+        #errors back to FuseSoC. No idea yet.
+        type        : dict
+    #The actual generator command. It will accept a single argument, the
+    #yaml file sent from FuseSoC. This yet fictive command_runner will just
+    #transform the generator root and core root to env vars and execute the
+    #command specified in 'command' above
+
+    #Generators will always reside somewhere in the tree of the core root that
+    #defines it
+    command: python command_runner.py
+    description : Runs a custom command defined in the 'command' parameter. $GENERATOR_ROOT and $CORE_ROOT are available as environment variables. 'output_files' describe a list of new files with metadata (e.g. [generated_file.v : {file_type : verilogSource, is_include_file : true}]) that are expected to have been generated
