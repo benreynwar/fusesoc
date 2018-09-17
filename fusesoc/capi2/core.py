@@ -379,8 +379,9 @@ class Core:
         for gen in _ttptttg:
             if not gen in self.generate:
                 raise SyntaxError("Generator instance '{}', requested by target '{}', was not found".format(gen, target.name))
+            params = self.generate[gen].parameters or {}
             ttptttg.append((gen, str(self.generate[gen].generator),
-                            dict(self.generate[gen].parameters)))
+                            dict(params)))
         return ttptttg
         
     def get_work_root(self, flags):
