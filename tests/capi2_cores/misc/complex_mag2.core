@@ -1,0 +1,17 @@
+CAPI=2:
+
+name : ::complex_mag2
+
+description : Returns the magnitude squared of a complex number.
+
+targets:
+  synth:
+    filesets : [core_files]
+    toplevel : complex_mag2
+
+filesets:
+  core_files:
+    files:
+      - complex_mag2.vhd
+    file_type: vhdlSource
+    depend: [complex_pkg]

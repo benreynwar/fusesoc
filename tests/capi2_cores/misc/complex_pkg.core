@@ -1,0 +1,28 @@
+CAPI=2:
+
+name : ::complex_pkg:0
+
+filesets:
+  fake_fileset:
+    depend: [generators]
+
+targets:
+  default:
+    generate : [complex_pkg_gen]
+    toplevel : na
+  synth:
+    filesets : [fake_fileset]
+    generate : [complex_pkg_gen]
+    toplevel : na
+
+generate:
+  complex_pkg_gen:
+    generator : jinja2_templater
+    parameters:
+      template_file : complex_pkg.vhd
+      template_parameters:
+        fixed_width : 4
+      output_file : complex_pkg.vhd
+      output_files :
+        - complex_pkg.vhd  : {file_type : vhdlSource}
+    # FIXME: Shouldn't have duplication of output file location.

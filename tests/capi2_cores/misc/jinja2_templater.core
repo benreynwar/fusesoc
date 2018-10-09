@@ -1,0 +1,5 @@
+CAPI=2:
+name : ::jinja2_templater:0
+generators:
+  jinja2_templater:
+    command: jinja2_templater.py
