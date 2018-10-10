@@ -5,3 +5,11 @@ generators:
   generator1:
     interpreter: python
     command: testgen.py
+
+  jinja2_templater:
+    interpreter: python
+    command: jinja2_templater.py
+
+  xilinx_core_generator:
+    interpreter: python
+    command: xilinx_core_generator.py

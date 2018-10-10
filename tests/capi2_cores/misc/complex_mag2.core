@@ -5,6 +5,9 @@ name : ::complex_mag2
 description : Returns the magnitude squared of a complex number.
 
 targets:
+  default:
+    filesets : [core_files]
+    toplevel : complex_mag2
   synth:
     filesets : [core_files]
     toplevel : complex_mag2

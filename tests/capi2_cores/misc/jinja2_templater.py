@@ -10,7 +10,7 @@ def jinja2_templater(yaml_file):
     """
     Generates a new file by filling in a j2 template.
     """
-    with open(sys.argv[1]) as f:
+    with open(yaml_file) as f:
         data = yaml.load(f)
 
     config = data['parameters']

@@ -8,6 +8,7 @@ filesets:
 
 targets:
   default:
+    filesets : [fake_fileset]
     generate : [complex_pkg_gen]
     toplevel : na
   synth:
