@@ -1,0 +1,134 @@
+Configurable Generators
+=======================
+
+At the moment all the parameters for a 'generator' must be fully specified in the core
+file with the corresponding 'generate' (ttctg).
+
+It would be useful to have a 'generate' that doesn't specify the
+parameters of the generator.  The parameters of the generator could get specified
+by one of three alternative ways:
+
+ - From the command line if it is the top-level core.
+ - From a parent generator.
+ - From generics/parameters specificed in a V*HDL file in the parent fileset.
+
+Implications
+------------
+
+The implications of this get a bit messy.
+
+A core contains:
+
+  - generators
+      generates files that we need.
+  - filesets
+      lists files that we need
+  - generates (or ttctgs)
+      associates generators with parameters
+  - targets
+      a target lists the relevant filesets and generates
+
+Modify fileset so that:
+  - It has a 'back_parameters' property.  These are parameters that a parent
+    generator will have access to.
+  - It has an optional 'top_module' property.  This is required in rare cases.
+
+Modify generate so that:
+  - It has an 'unconfigured' property.  This indicates that the generator must get
+    parameters from somewhere other than this core file.
+  - It has an optional 'back_parameters' property.  Only 'configured' generates can
+    have 'back_parameters'.
+
+Modify generator so that:
+  - It has a 'depend' property and can depend on other cores like a fileset.
+  - It has an optional 'configurable_from_neighborhood' property
+  - It has optional 'configure_interpreter' and 'configure_command' properties.
+
+Modify target so that:
+  - It has a 'components' property.  This is an alterative to 'filesets' and 'generates'.
+    It contains both filesets and generates together in one list in dependency order.
+    This make it clear what the dependencies are between filesets and generates.
+
+Currently the executable for each generator can be run independently since all the parameter
+for the generator are given in the core file.
+
+If the parameters for generators are initially unknown then we need to add a 'configuration'
+stage where the parameters for all generators are determined.
+
+Configuration
+=============
+
+Transform a Tree of Cores into a Tree of Filesets/Generates
+-----------------------------------------------------------
+
+First we consider the dependency tree. Inside a single core we have
+filesets and generates that can be arranged into a dependency line.
+Each of theses fileset/generates has potential dependencies on other
+cores. We set treat those dependencies as on the top fileset/generate
+in that other core. In this way we transform a tree of dependencies
+between cores into a tree of dependencies between filesets and
+generates.
+
+Transform Unconfigurable Generates into Filesets
+------------------------------------------------
+
+Next we consider the generates. The generates that use a generator
+with a configure executable we call configurable generates. The other
+generates use generators that are not configurable (i.e. like the
+current generators). The generate executables on these generators are
+now run, and they are transformed into filesets.
+
+Break Tree into Neighbourhoods
+------------------------------
+
+We now have a tree consisting of configurable generators and filesets.
+All connected filesets are grouped into neighbourhoods.  This transforms the
+tree into one of neighbourhoods and configurable generators.  Each neighbourhood
+has a 'top_module' which is the top_module of the fileset at the top of the tree.
+If this fileset is in the top of a core dependency line then this is the
+'top_module' of that core.  Otherwise the 'top_module' must be explicitly
+defined in the fileset definition.
+
+Starting the Configuration Process
+----------------------------------
+
+We start with the top element in the tree. If it is a generator then
+the parameters must have been passed on the command line. If it is a
+fileset and the top module has generics then these must have been
+passed on the command line. If it is a fileset and the top module has
+no generics then there's no problem.
+
+Process a Neighbourhood
+-----------------------
+
+We run a simulation on the all filesets in the neighbourhood along
+with any configurable generators immediately attached using
+target=configure. All of these configurable generators must have the
+'configurable_from_neighborhood' property, otherwise this is an
+exception. When the configurable generators are run in a simulation
+with target=configure they log to stdout the set of
+generics/parameters with which they were instantiated.
+
+We keep track of the parameter sets which which each generator
+is instantiated.
+
+If the neighbourhood has no configurable generators attached then
+it is not necessary to run this simulation.  In the future there
+may be more elegant methods of propagating the generics, but for
+now this seems like the most reliable method.
+
+Process a Configurable Generator
+--------------------------------
+
+We call the configure executable. It is given it's parameters and any
+back_parameters from directly dependent filesets. It determines the
+parameters for any directly dependent filesets or generators. It calls
+the configure executable on the dependent generators and passes their
+parameters. These generators return back_parameters.
+Finally if this configurable generator was a dependency of another
+configurable generator it passes back_parameters back.
+
+Configuration Summary
+---------------------
+We alternate between running simulations on neighbourhoods of filesets,
+to calling the configure executables on trees of configurable generators.
