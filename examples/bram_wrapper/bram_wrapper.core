@@ -1,0 +1,44 @@
+CAPI=2:
+
+name : ::bram_wrapper
+description: Generates a block ip core and a VHDL or Verilog wrapper to interface to it.
+
+filesets:
+  default:
+    files: []
+
+
+generators:
+  bram_wrapper_generator:
+    configure_interpreter: python
+    configure_command: bram_wrapper_configure.py
+    configurable_from_fileset: true
+    interpreter: python
+    command: bram_wrapper_generate.py
+    description : 
+    usage: |
+      Parameters:
+        width (int): The width of the memory.
+        depth (int): The depth of the memory.
+        language (String): "vhdl" or "verilog".  Used for generation of wrapper.
+          If language is not given no wrapper will be generated for these
+          parameters.
+        name (String): The name of the generated module/entity.
+        fabric (String): "xilinx" or "intelfpga"
+    depend:
+      - logceil
+
+generate:
+  bram_wrapper_generate:
+    generator: bram_wrapper_generator
+
+targets:
+  default:
+    generate: [bram_wrapper_generate]
+    filesets: [default]
+  synth:
+    generate: [bram_wrapper_generate]
+    filesets: [default]
+  configure:
+    generate: [bram_wrapper_generate]
+    filesets: [default]

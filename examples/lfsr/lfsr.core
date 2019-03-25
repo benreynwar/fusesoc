@@ -1,0 +1,42 @@
+CAPI=2:
+
+name : ::lfsr
+description: Generate linear feedback shift register.
+
+filesets:
+  default:
+    files: []
+
+
+generators:
+  lfsr_generator:
+    configure_interpreter: python
+    configure_command: lfsr_configure.py
+    configurable_from_fileset: true
+    interpreter: python
+    command: lfsr_generate.py
+    description : 
+    usage: |
+      Parameters:
+        width (int): The width of the data.
+        tap0 (int): The position of the first tap.
+        tap1 (int): The position of the second tap.
+        fabric (String): "xilinx" or "intelfpga"
+    depend:
+      - logceil
+      - shift_register
+
+generate:
+  lfsr_generate:
+    generator: lfsr_generator
+
+targets:
+  default:
+    generate: [lfsr_generate]
+    filesets: [default]
+  synth:
+    generate: [lfsr_generate]
+    filesets: [default]
+  configure:
+    generate: [lfsr_generate]
+    filesets: [default]

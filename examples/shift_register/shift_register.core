@@ -1,0 +1,21 @@
+CAPI=2:
+
+name : ::shift_register
+description:
+
+filesets:
+  default:
+    depend:
+      - logceil
+      - bram_wrapper
+    files:
+      - shift_register.sv:
+          file_type: systemVerilogSource
+
+targets:
+  default:
+    filesets : [default]
+    toplevel : shift_register
+  synth:
+    filesets : [default]
+    toplevel : shift_register
