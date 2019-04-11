@@ -271,6 +271,8 @@ class Core:
         self._debug("Getting dependencies for flags {}".format(str(flags)))
         for fs in self._get_filesets(flags):
             depends += [Vlnv(d) for d in self._parse_list(flags, fs.depend)]
+        for name, gen in self.get_generators(flags).items():
+            depends += [Vlnv(d) for d in self._parse_list(flags, gen.depend)]
         return depends
 
     def get_files(self, flags):
@@ -477,6 +479,8 @@ Targets:
         target_name = None
         if flags.get('is_toplevel') and flags.get('target'):
             target_name = flags.get('target')
+        elif (flags.get('target') == 'configure') and ('configure' in self.targets):
+            target_name = 'configure'
         else:
             target_name = "default"
 
@@ -580,6 +584,9 @@ Generate:
     - name : position
       type : String
       desc : Where to insert the generated core. Legal values are *first*, *append* or *last*. *append* will insert core after the core that called the generator
+    - name : configured_by_parent
+      type : String
+      desc : The parameters given are insufficient and the generate needs configuring from either the command line, another generator, or a generic/parameter in an HDL file.
 
 Generators:
   description : Generators are custom programs that generate FuseSoC cores. They are generally used during the build process, but can be used stand-alone too. This section allows a core to register a generator that can be used by other cores.
@@ -590,12 +597,29 @@ Generators:
     - name : interpreter
       type : String
       desc : If the command needs a custom interpreter (such as python) this will be inserted as the first argument before command when calling the generator. The interpreter needs to be on the system PATH.
+    - name : configurable_from_vhdl
+      type : String
+      desc : Fileset to use to configure from  vhdl.
+    - name : configurable_from_verilog
+      type : String
+      desc : Fileset to use to configure from verilog
     - name : description
       type : String
       desc : Short description of the generator, as shown with ``fusesoc gen list``
     - name : usage
       type : String
       desc : A longer description of how to use the generator, including which parameters it uses (as shown with ``fusesoc gen show $generator``
+    - name : configured_by_children
+      type : String
+      desc : This generator is configured in part by child generators.
+    - name : combine_instances
+      type : String
+      desc : The generator generates a single set of files based on the combined parameters of all
+             instantiations.  Useful for generating a module with generics.
+  lists:
+    - name : depend
+      type : String
+      desc : Dependencies of generator
 
 Target:
   description : A target is the entry point to a core. It describes a single use-case and what resources that are needed from the core such as file sets, generators, parameters and specific tool options. A core can have multiple targets, e.g. for simulation, synthesis or when used as a dependency for another core. When a core is used, only a single target is active. The *default* target is a special target that is always used when the core is being used as a dependency for another core or when no ``--target=`` flag is set.
