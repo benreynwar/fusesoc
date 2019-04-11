@@ -58,8 +58,8 @@ def files_from_fileset(core_root, fileset):
 
 class Generator:
 
-    def __init__(self, cache_root, core, generator):
-        self.name = core.name.name + '_' + generator.name
+    def __init__(self, name, cache_root, core, generator):
+        self.name = name
         self.core_name = core.name.name
         self.core = core
         self.configured_by_children = generator.configured_by_children
@@ -70,7 +70,31 @@ class Generator:
         self.generator = generator
         self.parameters = []
         self.generate_output = None
-        
+        self.generated = False
+
+    def generate(self, filenames):
+        if self.generated:
+            return self.generate_output
+        if not os.path.exists(self.work_root):
+            os.makedirs(self.work_root)
+        input_parameter_filename = os.path.join(self.work_root, 'generate_input.yaml')
+        output_parameter_filename = os.path.join(self.work_root, 'generate_output.yaml')
+        with open(input_parameter_filename, 'w') as handle:
+            handle.write(yaml.dump({'filenames': filenames, 'parameters': self.parameters,
+                                    'output_directory': self.work_root}))
+        cmd = self.interpreter
+        args = [self.command, input_parameter_filename, output_parameter_filename]
+        stdout_fn = os.path.join(self.work_root, 'generate_stdout')
+        stderr_fn = os.path.join(self.work_root, 'generate_stderr')
+        edatool.call_and_capture_output(
+            cmd, args, self.work_root, stdout_fn, stderr_fn,
+            output_stdout=False, output_stderr=False,
+            line_callback=edatool.standard_line_callback)
+        with open(output_parameter_filename, 'r') as handle:
+            output = yaml.safe_load(handle.read())
+        self.generate_output = output
+        self.generated = True
+        return output
 
 
 class FilesetNode:
@@ -97,9 +121,9 @@ class GenerateNode:
         self.core_name = core.name.name
         self.core = core
         self.configured_by_parent = generate.configured_by_parent
-        self.configured_by_children = generator.configured_by_children
-        self.interpreter = generator.interpreter
-        self.command = os.path.join(generator_core.core_root, generator.command)
+        self.configured_by_children = generator.generator.configured_by_children
+        self.interpreter = generator.generator.interpreter
+        self.command = os.path.join(generator_core.core_root, generator.generator.command)
         self.children = children
         self.from_vhdl_fileset = from_vhdl_fileset
         self.from_verilog_fileset = from_verilog_fileset
@@ -125,29 +149,6 @@ class GenerateNode:
             label += 1
         return filename
 
-    def generate_self(self):
-        input_parameter_filename = os.path.join(self.work_root, 'generate_input.yaml')
-        output_parameter_filename = os.path.join(self.work_root, 'generate_output.yaml')
-        with open(input_parameter_filename, 'w') as handle:
-            handle.write(yaml.dump(self.parameters))
-        cmd = self.interpreter
-        args = [self.command, input_parameter_filename, output_parameter_filename]
-        stdout_fn = os.path.join(self.work_root, 'generate_stdout')
-        stderr_fn = os.path.join(self.work_root, 'generate_stderr')
-        edatool.call_and_capture_output(
-            cmd, args, self.work_root, stdout_fn, stderr_fn,
-            output_stdout=False, output_stderr=False,
-            line_callback=edatool.standard_line_callback)
-        with open(output_parameter_filename, 'r') as handle:
-            output = yaml.safe_load(handle.read())
-        self.generate_output = output
-        return output
-
-    def generate(self):
-        for child in self.children:
-            child.generate()
-        self.generate()
-
     def configure_children(self, input_parameters):
         input_parameter_filename = os.path.join(self.work_root, 'configure_input.yaml')
         output_parameter_filename = os.path.join(self.work_root, 'configure_output.yaml')
@@ -166,17 +167,11 @@ class GenerateNode:
         names = [child.name for child in self.children]
         assert len(names) == len(set(names))
         child_output_parameters = {}
-        generator_parameters = {}
         for child in self.children:
             child_input_parameters = output.get('child_input_parameters', {})
             for parameter_set in child_input_parameters.get(child.name, []):
-                child_output_parameters[child.name], child_generator_parameters = child.configure(
-                    parameter_set)
-                for name, values in child_generator_parameters.items():
-                    if name not in generator_parameters:
-                        generator_parameters[name] = []
-                    generator_parameters[name] += values
-        return child_output_parameters, generator_parameters
+                child_output_parameters[child.name] = child.configure(parameter_set)
+        return child_output_parameters
 
     def configure_parent(self, input_parameters):
         input_parameter_filename = os.path.join(self.work_root, 'configure_parent_input.yaml')
@@ -206,16 +201,13 @@ class GenerateNode:
         if (self.configured_by_parent or self.needs_to_configure_children() or
                 self.configured_by_children):
             logger.info('{} running configure children'.format(self.name))
-            child_output_parameters, generator_parameters = self.configure_children(input_parameters)
+            child_output_parameters = self.configure_children(input_parameters)
             input_parameters['child_output_parameters'] = child_output_parameters
-            if self.generator.name not in generator_parameters:
-                generator_parameters[self.generator.name] = []
-            generator_parameters[self.generator.name].append(input_parameters)
-            self.parameters.append(input_parameters)
+            self.generator.parameters.append(input_parameters)
             logger.info('{} running configure parent'.format(self.name))
             output_parameters = self.configure_parent(input_parameters)
             logger.info('{} done with configure'.format(self.name))
-        return output_parameters, generator_parameters
+        return output_parameters
 
     def get_files_to_configure_from_fileset(self, language):
         assert language in ('vhdl', 'verilog')
@@ -224,6 +216,14 @@ class GenerateNode:
         elif language == 'verilog':
             files = files_from_fileset(self.core.core_root, self.from_verilog_fileset)
         return files
+
+    def generate(self):
+        all_filenames = []
+        for child in self.children:
+            all_filenames += child.generate()
+        generator_output = self.generator.generate(all_filenames)
+        all_filenames += generator_output['filenames']
+        return all_filenames
 
 
 class NeighborhoodNode:
@@ -250,8 +250,11 @@ class NeighborhoodNode:
         pass
 
     def generate(self):
+        filenames = []
         for child in self.children:
-            child.generate()
+            filenames += child.generate()
+        filenames += [fusesoc_file_to_edalize_file(f) for f in self.get_files()]
+        return filenames
 
     def get_files(self):
         files = []
@@ -334,30 +337,25 @@ class NeighborhoodNode:
                     generator_parameters[generator] = []
                 generator_parameters[generator].append(generics)
         child_output_parameters = {}
-        output_generator_parameters = {}
         for child in self.children:
             if child.core_name not in generator_parameters:
                 raise RuntimeError('The generator {} expected to receive generic parameters from fileset {} but none were recieved.'.format(self.name, child.core_name))
             assert child.name not in child_output_parameters
             for params in generator_parameters[child.core_name]:
-                child_output_parameters[child.name], child_generator_parameters = child.configure(
+                child_output_parameters[child.name] = child.configure(
                     params)
-                for name, values in child_generator_parameters.items():
-                    if name not in output_generator_parameters:
-                        output_generator_parameters[name] = []
-                    output_generator_parameters[name] += values
-        return child_output_parameters, output_generator_parameters
+        return child_output_parameters
 
     def configure(self, input_parameters):
         if not os.path.exists(self.work_root):
             os.makedirs(self.work_root)
         if (self.configured_by_parent or self.needs_to_configure_children() or
                 self.configured_by_children):
-            child_output_parameters, generator_parameters = self.configure_children(input_parameters)
+            child_output_parameters = self.configure_children(input_parameters)
             input_parameters['child_output_parameters'] = child_output_parameters
             output_parameters = self.configure_parent(input_parameters)
             self.parameters = input_parameters
-            return output_parameters, generator_parameters
+            return output_parameters
         else:
             return {}, {}
 
@@ -383,29 +381,33 @@ def cores_to_nodes(cache_root, flags, cores):
         filesets = [core.filesets[name] for name in fileset_names if core.filesets[name].files]
         sim_filesets = [core.filesets[name] for name in sim_fileset_names]
         generates = [core.generate[name] for name in generate_names]
-        generator_names = [g.generator for g in generates]
         generators = core.get_generators(flags)
         for generator_name, generator in generators.items():
             assert generator_name not in all_generators
             print('saving generator {}'.format(generator_name))
-            all_generators[generator_name] = (name, generator)
+            all_generators[generator_name] = Generator(
+                cache_root=cache_root,
+                name=name,
+                core=core,
+                generator=generator,
+                )
         all_cores[name] = core
         last_node = None
         for generate in reversed(generates):
-            generator_core, generator = all_generators[generate.generator]
-            dependencies = [core_top_node[core_name] for core_name in generator.depend]
+            generator = all_generators[generate.generator]
+            dependencies = [core_top_node[core_name] for core_name in generator.generator.depend]
             if last_node is not None:
                 dependencies.append(last_node)
-            if generator.configurable_from_vhdl:
-                from_vhdl_fileset = core.filesets[generator.configurable_from_vhdl]
+            if generator.generator.configurable_from_vhdl:
+                from_vhdl_fileset = core.filesets[generator.generator.configurable_from_vhdl]
             else:
                 from_vhdl_fileset = None
-            if generator.configurable_from_verilog:
-                from_verilog_fileset = core.filesets[generator.configurable_from_verilog]
+            if generator.generator.configurable_from_verilog:
+                from_verilog_fileset = core.filesets[generator.generator.configurable_from_verilog]
             else:
                 from_verilog_fileset = None
-            node = GenerateNode(cache_root, core, generate, all_cores[generator_core], generator, dependencies,
-                                from_vhdl_fileset, from_verilog_fileset)
+            node = GenerateNode(cache_root, core, generate, all_cores[generator.core.name.name], generator,
+                                dependencies, from_vhdl_fileset, from_verilog_fileset)
             last_node = node
             toplevel = None
         for fileset in reversed(filesets):
@@ -485,7 +487,8 @@ class Edalizer(object):
         if not os.path.exists(top_node.work_root):
             os.makedirs(top_node.work_root)
         top_parameters = {'width': 32, 'tap0': 15, 'tap1': 37}
-        response_parameters, generator_parameters = top_node.configure(top_parameters)
+        response_parameters = top_node.configure(top_parameters)
+        filenames = top_node.generate()
         import pdb
         pdb.set_trace()
         core_queue = cores[:]

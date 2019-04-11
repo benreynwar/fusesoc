@@ -1,7 +1,6 @@
 module shift_register #(
-  parameter DEPTH=10,
+  parameter DEPTH=40,
   parameter WIDTH=10,
-  parameter TARGET="XILINX",
   parameter DEPTH_CUTOFF=32
 ) (
   input clk,
@@ -46,6 +45,7 @@ module shift_register #(
     // Deep Depth Implementation
     always_ff @(posedge clk)
     begin
+      /* verilator lint_off WIDTH */
       if (i_valid == 1) begin
         if (write_address == DEPTH-1) begin
           write_address <= 0;
@@ -59,6 +59,7 @@ module shift_register #(
           read_address <= read_address + 1;
         end;
       end;
+      /* verilator lint_on WIDTH */
       if (reset == 1) begin
         write_address <= 0;
         read_address <= 1;

@@ -10,11 +10,8 @@ filesets:
 
 generators:
   lfsr_generator:
-    configure_interpreter: python
-    configure_command: lfsr_configure.py
-    configurable_from_fileset: true
     interpreter: python
-    command: lfsr_generate.py
+    command: lfsr.py
     description : 
     usage: |
       Parameters:
@@ -29,6 +26,7 @@ generators:
 generate:
   lfsr_generate:
     generator: lfsr_generator
+    configured_by_parent: true
 
 targets:
   default:
@@ -38,5 +36,8 @@ targets:
     generate: [lfsr_generate]
     filesets: [default]
   configure:
+    generate: [lfsr_generate]
+    filesets: [default]
+  sim:
     generate: [lfsr_generate]
     filesets: [default]

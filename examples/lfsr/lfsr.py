@@ -1,8 +1,19 @@
 import math
+import argparse
+import os
+
+import yaml
 
 import nmigen
 from nmigen import Module, Signal, Mux, Instance, ClockSignal, ResetSignal
 from nmigen.back import verilog
+
+from fusesoc import main as fusesoc_main
+
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def logceil(argument):
@@ -25,12 +36,12 @@ def lfsr_model(tap0, tap1, seed):
 
 class LFSR:
 
-    def __init__(self, width, tap0, tap1, target='XILINX'):
+    def __init__(self, width, tap0, tap1, fabric='XILINX'):
         # Parameters
         self.width = width
         self.tap0 = tap0
         self.tap1 = tap1
-        self.target = target
+        self.fabric = fabric
         # Ports
         self.seed_valid = Signal()
         self.seed_data = Signal(width)
@@ -70,8 +81,8 @@ class LFSR:
             "shift_register",
             p_WIDTH=self.width,
             p_DEPTH=self.tap0,
-            p_TARGET=self.target,
-            p_DEPTH_CUTOFF=32,
+            #p_FABRIC=self.fabric,
+            p_DEPTH_CUTOFF=8,
             i_clk=ClockSignal(),
             i_reset=ResetSignal(),
             i_i_valid=tofirstpipe_valid,
@@ -87,8 +98,8 @@ class LFSR:
             "shift_register",
             p_WIDTH=self.width,
             p_DEPTH=self.tap1-self.tap0,
-            p_TARGET=self.target,
-            p_DEPTH_CUTOFF=32,
+            #p_FABRIC=self.fabric,
+            p_DEPTH_CUTOFF=8,
             i_clk=ClockSignal(),
             i_reset=ResetSignal(),
             i_i_valid=fromfirstpipe_valid,
@@ -104,12 +115,57 @@ class LFSR:
 
         return m
 
-def main():
-    m = LFSR(width=32, tap0=31, tap1=50)
-    #a = convert(m, m.ios)
+def generate(parameters):
+    params = parameters['parameters']
+    output_directory = parameters['output_directory']
+    assert len(params) == 1
+    params = params[0]
+    m = LFSR(width=params['width'], tap0=params['tap0'], tap1=params['tap1'])
     fragment = nmigen.Fragment.get(m, platform=None)
-    output = verilog.convert(fragment, name='lfsr', ports=self.input_ports+self.output_ports)
-    print(output)
+    output = verilog.convert(fragment, name='lfsr', ports=m.input_ports+m.output_ports)
+    output_filename = os.path.join(output_directory, 'lfsr.v')
+    with open(output_filename, 'w') as f:
+        f.write(output)
+    return {'filenames': [output_filename]}
+
+
+def configure_children(parameters):
+    logger.warning('LFSR: Configuring children')
+    m = LFSR(width=parameters['width'], tap0=parameters['tap0'],
+             tap1=parameters['tap1']).elaborate(platform=None)
+    child_input_parameters = {'shift_register': []}
+    for submodule, submodule_name in m._submodules:
+        assert submodule.type == 'shift_register'
+        child_input_parameters['shift_register'].append(dict(submodule.parameters))
+    output = {
+        'child_input_parameters': child_input_parameters}
+    return output
+
+
+def configure_parent(parameters):
+    return {}
+
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--configure', dest='configure_children', action='store_true')
+    parser.add_argument('--configure-parent', dest='configure_parent', action='store_true')
+    parser.add_argument('input_filename', type=str)
+    parser.add_argument('output_filename', type=str, default=None)
+
+    args = parser.parse_args()
+
+    fusesoc_main.setup_logging(level=logging.DEBUG, monochrome=True, log_file=None)
+
+    if args.configure_children and args.configure_parent:
+        raise RuntimeError('Cannot configure both children and parents.')
+    with open(args.input_filename, 'r') as f:
+        parameters = yaml.safe_load(f.read())
+    if not args.configure_children and not args.configure_parent:
+        output_parameters = generate(parameters)
+    elif args.configure_children:
+        output_parameters = configure_children(parameters)
+    elif args.configure_parent:
+        output_parameters = configure_parent(parameters)
+    with open(args.output_filename, 'w') as f:
+        f.write(yaml.dump(output_parameters))

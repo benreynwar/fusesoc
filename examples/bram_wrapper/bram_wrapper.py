@@ -1,8 +1,18 @@
-import sys
+import argparse
+import os
+import jinja2
+import logging
 
 import yaml
 
+from fusesoc import main as fusesoc_main
+
+
+logger = logging.getLogger(__name__)
+
+
 THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
+
 
 def generate_xilinx_bram(name, width, depth, output_directory):
     """
@@ -22,7 +32,7 @@ def generate_xilinx_bram(name, width, depth, output_directory):
     return output_filename
 
 
-def generate_wrapper(all_parameters, fabric, language):
+def generate_wrapper(all_parameters, fabric, language, output_directory):
     """
     Generates a VHDL or verilog wrapper that instantiates the appropriate bram ip depending on the
     width and generic given as generics.
@@ -49,6 +59,7 @@ def generate(all_parameters, output_directory):
     for_verilog_wrapper = []
     fabric = None
     for parameters in all_parameters:
+        print(parameters)
         language = parameters.get('language', None)
         width = parameters['width']
         depth = parameters['depth']
@@ -57,34 +68,61 @@ def generate(all_parameters, output_directory):
             fabric = parameters['fabric']
         else:
             assert fabric == parameters['fabric']
-        if fabric == 'xilinx':
+        if fabric == 'XILINX':
             filenames.append(generate_xilinx_bram(
                 name=name, width=width, depth=depth, output_directory=output_directory))
         else:
             raise Exception(
-                'Unknown fabric ({}). Only xilinx is currently supported').format(fabric)
+                'Unknown fabric ({}). Only XILINX is currently supported'.format(fabric))
         if language == 'vhdl':
             for_vhdl_wrapper.append({'width': width, 'depth': depth, 'name': name})
         elif language == 'verilog':
             for_verilog_wrapper.append({'width': width, 'depth': depth, 'name': name})
         else:
             assert language is None
-    if for_vhdl_parameters:
-        filenames.append(generate_wrapper(for_vhdl_wrapper, fabric, 'vhdl'))
-    if for_verilog_parameters:
-        filenames.append(generate_wrapper(for_verilog_wrapper, fabric, 'verilog'))
+    if for_vhdl_wrapper:
+        filenames.append(generate_wrapper(for_vhdl_wrapper, fabric, 'vhdl', output_directory))
+    if for_verilog_wrapper:
+        filenames.append(generate_wrapper(for_verilog_wrapper, fabric, 'verilog', output_directory))
     return filenames
 
 
+def configure_children(parameters):
+    logger.warning('bram_wrapper: Running configure_children: {}'.format(parameters))
+    return {}
+
+
+def main():
+    fusesoc_main.setup_logging(level=logging.DEBUG, monochrome=True, log_file=None)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--configure', dest='configure_children', action='store_const',
+                        const=True, default=False)
+    parser.add_argument('--configure-parent', dest='configure_parent', action='store_const',
+                        const=True, default=False)
+    parser.add_argument('input_filename', type=str)
+    parser.add_argument('output_filename', type=str, default=None)
+    args = parser.parse_args()
+    logger.warning('Running bram wrapper')
+    if args.configure_children and args.configure_parent:
+        raise RuntimeError('Cannot configure both children and parents.')
+    with open(args.input_filename, 'r') as f:
+        parameters = yaml.safe_load(f.read())
+    if not args.configure_children and not args.configure_parent:
+        logger.warning('Running bram wrapper generate')
+        output = generate(parameters['parameters'], parameters['output_directory'])
+        with open(args.output_filename, 'w') as f:
+            parameters = f.write(yaml.dump({'filenames': output}))
+    elif args.configure_children:
+        logger.warning('Running bram wrapper configure')
+        output_parameters = configure_children(parameters)
+        with open(args.output_filename, 'w') as f:
+            parameters = f.write(yaml.dump(output_parameters))
+    elif args.configure_parent:
+        logger.warning('Running bram wrapper configure-parent')
+        output_parameters = {}
+        with open(args.output_filename, 'w') as f:
+            parameters = f.write(yaml.dump(output_parameters))
+
+
 if __name__ == '__main__':
-    parameters_filename = sys.argv[1]
-    core_filename = sys.argv[2]
-    with open(parameters_filename, 'r') as handle:
-        parameters = yaml.load(handle.read())
-    filenames = generate(parameters)
-    content = make_core_from_filenames(
-        filenames=filenames,
-        core_name='bram_wrapper_generator',
-        )
-    with open(core_filename, 'w') as handle:
-        handle.write(yaml.dump(content))
+    main()

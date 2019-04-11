@@ -6,11 +6,14 @@ description:
 filesets:
   default:
     depend:
-      - logceil
       - bram_wrapper
     files:
       - shift_register.sv:
           file_type: systemVerilogSource
+  sim:
+    files:
+      - shift_register.cpp:
+          file_type: cppSource
 
 targets:
   default:
@@ -18,4 +21,7 @@ targets:
     toplevel : shift_register
   synth:
     filesets : [default]
+    toplevel : shift_register
+  sim:
+    filesets : [default, sim]
     toplevel : shift_register

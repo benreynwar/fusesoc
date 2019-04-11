@@ -6,15 +6,20 @@ description: Generates a block ip core and a VHDL or Verilog wrapper to interfac
 filesets:
   default:
     files: []
+  configure_with_verilog:
+    files: [configure_bram_wrapper.v]
+    file_type: verilogSource
+  configure_with_vhdl:
+    files: [configure_bram_wrapper.vhd]
+    file_type: vhdlSource
 
 
 generators:
   bram_wrapper_generator:
-    configure_interpreter: python
-    configure_command: bram_wrapper_configure.py
-    configurable_from_fileset: true
+    configurable_from_verilog: configure_with_verilog
+    configurable_from_vhdl: configure_with_vhdl
     interpreter: python
-    command: bram_wrapper_generate.py
+    command: bram_wrapper.py
     description : 
     usage: |
       Parameters:
@@ -25,12 +30,11 @@ generators:
           parameters.
         name (String): The name of the generated module/entity.
         fabric (String): "xilinx" or "intelfpga"
-    depend:
-      - logceil
 
 generate:
   bram_wrapper_generate:
     generator: bram_wrapper_generator
+    configured_by_parent: true
 
 targets:
   default:
