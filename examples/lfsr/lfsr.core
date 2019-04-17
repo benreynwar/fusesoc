@@ -7,7 +7,6 @@ filesets:
   default:
     files: []
 
-
 generators:
   lfsr_generator:
     interpreter: python
@@ -23,10 +22,24 @@ generators:
       - logceil
       - shift_register
 
+parameters:
+  width:
+    datatype: int
+    paramtype: generatorarg
+  tap0:
+    datatype: int
+    paramtype: generatorarg
+  tap1:
+    datatype: int
+    paramtype: generatorarg
+  fabric:
+    datatype: string
+    paramtype: generatorarg
+
 generate:
   lfsr_generate:
     generator: lfsr_generator
-    configured_by_parent: true
+    needs_configuring: true
 
 targets:
   default:

@@ -20,6 +20,7 @@ generators:
     configurable_from_vhdl: configure_with_vhdl
     interpreter: python
     command: bram_wrapper.py
+    gathers_parameters: true
     description : 
     usage: |
       Parameters:
@@ -34,7 +35,7 @@ generators:
 generate:
   bram_wrapper_generate:
     generator: bram_wrapper_generator
-    configured_by_parent: true
+    needs_configuring: true
 
 targets:
   default:

@@ -584,7 +584,7 @@ Generate:
     - name : position
       type : String
       desc : Where to insert the generated core. Legal values are *first*, *append* or *last*. *append* will insert core after the core that called the generator
-    - name : configured_by_parent
+    - name : needs_configuring
       type : String
       desc : The parameters given are insufficient and the generate needs configuring from either the command line, another generator, or a generic/parameter in an HDL file.
 
@@ -599,10 +599,22 @@ Generators:
       desc : If the command needs a custom interpreter (such as python) this will be inserted as the first argument before command when calling the generator. The interpreter needs to be on the system PATH.
     - name : configurable_from_vhdl
       type : String
-      desc : Fileset to use to configure from  vhdl.
+      desc : Fileset to use to configure from vhdl.
     - name : configurable_from_verilog
       type : String
       desc : Fileset to use to configure from verilog
+    - name : single_use
+      type : String
+      desc : The generator can only be used a single time in a design.
+    - name : gathers_parameters
+      type : String
+      desc : The generator can collects parameters from all 'generate' instantiations and is generated once.
+    - name : configures_children_with_command
+      type : String
+      desc : The command is run to get configuration parameters for children.
+    - name : can_configure_parent
+      type : String
+      desc : The command returns configuration parameters for parent.
     - name : description
       type : String
       desc : Short description of the generator, as shown with ``fusesoc gen list``

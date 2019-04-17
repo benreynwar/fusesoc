@@ -59,7 +59,6 @@ def generate(all_parameters, output_directory):
     for_verilog_wrapper = []
     fabric = None
     for parameters in all_parameters:
-        print(parameters)
         language = parameters.get('language', None)
         width = parameters['width']
         depth = parameters['depth']
@@ -92,6 +91,33 @@ def configure_children(parameters):
     return {}
 
 
+def check_parameters(parameters, gathered):
+    if 'parameters' not in parameters:
+        raise RuntimeError('Missing "parameters" in call to bram_wrapper generator')
+    if 'output_directory' not in parameters:
+        print(parameters)
+        raise RuntimeError('Missing "output_directory" in call to bram_wrapper generator')
+    params = parameters['parameters']
+    if not gathered:
+        check_single_parameters(params)
+    else:
+        for p in params:
+            check_single_parameters(p)
+
+
+def check_single_parameters(params):
+    expected = {
+        'width': int,
+        'depth': int,
+        }
+    for name, typ in expected.items():
+        if name not in params:
+            raise RuntimeError('Parameters "{}" not found in call to bram_wrapper generator'.format(name))
+        if type(params[name]) != typ:
+            raise RuntimeError('Parameter "{}" should have type {}. Found type {}.'.format(
+                name, typ, type(params[name])))
+
+
 def main():
     fusesoc_main.setup_logging(level=logging.DEBUG, monochrome=True, log_file=None)
     parser = argparse.ArgumentParser()
@@ -100,7 +126,7 @@ def main():
     parser.add_argument('--configure-parent', dest='configure_parent', action='store_const',
                         const=True, default=False)
     parser.add_argument('input_filename', type=str)
-    parser.add_argument('output_filename', type=str, default=None)
+    parser.add_argument('output_filename', type=str, default=None, nargs='?')
     args = parser.parse_args()
     logger.warning('Running bram wrapper')
     if args.configure_children and args.configure_parent:
@@ -108,16 +134,21 @@ def main():
     with open(args.input_filename, 'r') as f:
         parameters = yaml.safe_load(f.read())
     if not args.configure_children and not args.configure_parent:
+        print(parameters)
+        config = parameters['parameters']
+        check_parameters(config, True)
         logger.warning('Running bram wrapper generate')
-        output = generate(parameters['parameters'], parameters['output_directory'])
-        with open(args.output_filename, 'w') as f:
-            parameters = f.write(yaml.dump({'filenames': output}))
+        output = generate(config['parameters'], config['output_directory'])
+        #with open(args.output_filename, 'w') as f:
+        #    parameters = f.write(yaml.dump({'filenames': output}))
     elif args.configure_children:
+        check_parameters(parameters, False)
         logger.warning('Running bram wrapper configure')
         output_parameters = configure_children(parameters)
         with open(args.output_filename, 'w') as f:
             parameters = f.write(yaml.dump(output_parameters))
     elif args.configure_parent:
+        check_parameters(parameters, False)
         logger.warning('Running bram wrapper configure-parent')
         output_parameters = {}
         with open(args.output_filename, 'w') as f:
