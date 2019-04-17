@@ -14,6 +14,8 @@
 #
 import os
 import sys
+from datetime import datetime
+
 sys.path.insert(0, os.path.abspath(os.path.join('..','..')))
 
 from fusesoc.capi2.core import gen_doc
@@ -24,7 +26,7 @@ with open(os.path.join(os.path.abspath('.'),'capi2.rst'), 'w') as f:
 # -- Project information -----------------------------------------------------
 
 project = 'FuseSoC'
-copyright = '2018, Olof Kindgren'
+copyright = '2018-{}, Olof Kindgren'.format(datetime.now().year)
 author = 'Olof Kindgren'
 
 # The short X.Y version
@@ -82,7 +84,24 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+# The Read the Docs theme is available from
+# https://github.com/snide/sphinx_rtd_theme
+#
+# Install with
+# - pip install sphinx_rtd_theme
+# or
+# - apt-get install python-sphinx-rtd-theme
+
+try:
+    import sphinx_rtd_theme
+    html_theme = 'sphinx_rtd_theme'
+except ImportError:
+    sys.stderr.write('Warning: The Sphinx \'sphinx_rtd_theme\' HTML theme was '+
+        'not found. Make sure you have the theme installed to produce pretty '+
+        'HTML output. Falling back to the default theme.\n')
+
+    html_theme = 'alabaster'
+
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

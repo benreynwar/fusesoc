@@ -50,7 +50,6 @@ class String(str):
         word = Word(alphanums+':<>.[]_-,=~/')
         conditional = Forward()
         conditional << (Optional("!")("negate") + word("cond") + Suppress('?') + Suppress('(') + OneOrMore(conditional ^ word)("expr") + Suppress(')')).setParseAction(cb_conditional)
-        #string = (function ^ word)
         string = word
         string_list = OneOrMore(conditional ^ string)
         s = ' '.join(string_list.parseString(self.__str__()))
@@ -113,7 +112,7 @@ class Core:
         self.core_root = os.path.dirname(core_file)
 
         try:
-            _root = Root(yaml.load(open(core_file)))
+            _root = Root(yaml.safe_load(open(core_file)))
         except KeyError as e:
             raise SyntaxError("Unknown item {}".format(e))
         except (yaml.scanner.ScannerError, yaml.constructor.ConstructorError) as e:
@@ -313,7 +312,7 @@ class Core:
                 else:
                     default     = self.parameters[p].default
                 description = self.parameters[p].description
-                paramtype   = self.parameters[p].paramtype
+                paramtype   = self.parameters[p].paramtype.parse(flags)
 
                 if not datatype in ['bool', 'file', 'int', 'str']:
                     _s = "{} : Invalid datatype '{}' for parameter {}"
@@ -325,7 +324,7 @@ class Core:
                     raise SyntaxError(_s.format(self.name, paramtype, p))
                 parameters[p] = {
                     'datatype'  : str(self.parameters[p].datatype),
-                    'paramtype' : str(self.parameters[p].paramtype),
+                    'paramtype' : paramtype,
                 }
 
                 if description:
@@ -777,7 +776,7 @@ def _generate_classes(j, base_class):
         generatedClass = type(cls, (base_class,), class_members)
         globals()[generatedClass.__name__] = generatedClass
 
-capi2_data = yaml.load(description)
+capi2_data = yaml.safe_load(description)
 
 for backend in get_edatools():
     backend_name = backend.__name__
