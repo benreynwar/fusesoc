@@ -48,6 +48,7 @@ targets:
   synth:
     generate: [lfsr_generate]
     filesets: [default]
+    toplevel: lfsr
   configure:
     generate: [lfsr_generate]
     filesets: [default]

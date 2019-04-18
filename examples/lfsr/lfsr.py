@@ -115,23 +115,42 @@ class LFSR:
 
         return m
 
+
 def generate(parameters):
     params = parameters['parameters']
-    output_directory = parameters['output_directory']
+    output_directory = os.get_pwd()
     m = LFSR(width=params['width'], tap0=params['tap0'], tap1=params['tap1'])
     fragment = nmigen.Fragment.get(m, platform=None)
     output = verilog.convert(fragment, name='lfsr', ports=m.input_ports+m.output_ports)
     output_filename = os.path.join(output_directory, 'lfsr.v')
-    #with open(output_filename, 'w') as f:
-    #    f.write(output)
+    with open(output_filename, 'w') as handle:
+        handle.write(output)
+    output_core_file = os.path.join(output_directory, 'lfsr.core')
+
+    filesets = {
+        'default': {'lfsr.v': {'filetype': 'vhdlSource'}},
+        }
+    targets = {
+        'default': {'filesets': ['default']},
+        }
+
+    with open(output_core_file, 'w') as f:
+        f.write('CAPI=2:\n')
+        coredata = {
+            'name': parameters['vlnv'],
+            'filesets': filesets,
+            'parameters': params,
+            'targets': targets,
+        }
+        f.write(yaml.dump(coredata))
+
     return {'filenames': [output_filename]}
 
 
 def configure_children(parameters):
-    params = parameters['parameters']
     logger.warning('LFSR: Configuring children')
-    m = LFSR(width=params['width'], tap0=params['tap0'],
-             tap1=params['tap1']).elaborate(platform=None)
+    m = LFSR(width=parameters['width'], tap0=parameters['tap0'],
+             tap1=parameters['tap1']).elaborate(platform=None)
     child_input_parameters = {'shift_register': []}
     for submodule, submodule_name in m._submodules:
         assert submodule.type == 'shift_register'
@@ -147,11 +166,6 @@ def configure_parent(parameters):
 
 
 def check_parameters(parameters):
-    if 'parameters' not in parameters:
-        raise RuntimeError('Missing "parameters" in call to lfsr generator')
-    if 'output_directory' not in parameters:
-        raise RuntimeError('Missing "output_directory" in call to lfsr generator')
-    params = parameters['parameters']
     expected = {
         'width': int,
         'tap0': int,
@@ -159,12 +173,11 @@ def check_parameters(parameters):
         'fabric': str,
         }
     for name, typ in expected.items():
-        if name not in params:
+        if name not in parameters:
             raise RuntimeError('Parameters "{}" not found in call to lfsr generator'.format(name))
-        if type(params[name]) != typ:
+        if type(parameters[name]) != typ:
             raise RuntimeError('Parameter "{}" should have type {}. Found type {}.'.format(
-                name, typ, type(params[name])))
-                                                                                         
+                name, typ, type(parameters[name])))
 
 
 if __name__ == '__main__':
@@ -182,9 +195,10 @@ if __name__ == '__main__':
         raise RuntimeError('Cannot configure both children and parents.')
     with open(args.input_filename, 'r') as f:
         parameters = yaml.safe_load(f.read())
+    logger.warning('{}'.format(parameters))
     if not args.configure_children and not args.configure_parent:
         check_parameters(parameters['parameters'])
-        output_parameters = generate(parameters['parameters'])
+        output_parameters = generate(parameters)
     elif args.configure_children:
         check_parameters(parameters)
         output_parameters = configure_children(parameters)
